@@ -21,19 +21,19 @@ var Config = function() {
 
   var configFile = nconf.get('config');
 
+  // Set sane defaults
+  nconf.file('defaults', path.resolve(process.cwd(), './etc/defaults.json'));
+
   // Load custom config file
   if (configFile && hasConfigAccess(configFile)) {
     nconf.file(
       'config',
       {
         file: path.resolve(process.cwd(), configFile),
-        format: nconfKryptFormat('TALU_PAYMENT_SECRET')
+        format: nconfKryptFormat(nconf.get('nconf:encryptedEnv'))
       }
     );
   }
-
-  // Last case scenario, we set sane defaults
-  nconf.file('defaults', path.resolve(process.cwd(), './etc/defaults.json'));
   return nconf;
 };
 

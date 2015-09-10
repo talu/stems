@@ -14,14 +14,21 @@
     "aws-sdk": "*",
     "baucis": "*",
     "baucis-vivify": "*",
+    "body-parser": "*",
+    "compression": "*",
+    "cors": "*",
+    "errorhandler": "*",
     "di": "2.0.0-pre-14",
     "express": "*",
+    "express-validator": "*",
+    "helmet": "*",
     "krypt": "*",
     "lodash": "*",
     "mongoose": "*",
     "nconf": "*",
     "usher": "*",
-    "winston": "*"
+    "winston": "*",
+    "winston-request-logger": "*"
   },
   "devDependencies": {
     "mongoose-test-utils": "*",

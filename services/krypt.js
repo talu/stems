@@ -9,8 +9,8 @@ var di = require('di'),
 var Krypt = function(config) {
 
   // Set default secret key for encryption / decryption
-  var keys = config.get('secrets:keys'),
-      secretKey = keys[config.get('secrets:defaultKey')];
+  var keys = config.get('krypt:keys'),
+      secretKey = keys[config.get('krypt:defaultKey')];
 
   if (!secretKey) {
     throw new Error('No default encryption key could be found');
