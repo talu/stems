@@ -14,7 +14,6 @@ var winston = require('winston'),
 
 
 function App(config, logger, passport) {
-
   var self = this;
 
   events.EventEmitter.call(this);

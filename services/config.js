@@ -1,7 +1,10 @@
 'use strict';
 
 
-var nconf = require('nconf'),
+var
+    _ = require('lodash'),
+    fs = require('fs'),
+    nconf = require('nconf'),
     path = require('path'),
     krypt = require('krypt');
 
@@ -19,10 +22,12 @@ var Config = function() {
     .argv()
     .env('_');
 
-  var configFile = nconf.get('config');
+  var
+    configFile = nconf.get('config'),
+    defaultsPath = path.resolve(process.cwd(), './etc/defaults.json'),
+    defaults = fileToJson(defaultsPath);
 
   // Set sane defaults
-  nconf.file('defaults', path.resolve(process.cwd(), './etc/defaults.json'));
 
   // Load custom config file
   if (configFile && hasConfigAccess(configFile)) {
@@ -30,12 +35,27 @@ var Config = function() {
       'config',
       {
         file: path.resolve(process.cwd(), configFile),
-        format: nconfKryptFormat(nconf.get('nconf:encryptedEnv'))
+        format: nconfKryptFormat(_.get(defaults, 'nconf.encryptedEnv'))
       }
     );
   }
+  nconf.file('defaults', defaultsPath);
   return nconf;
 };
+
+/**
+ * Load JSON from file
+ */
+function fileToJson(path) {
+  var obj;
+  try {
+    obj = JSON.parse(fs.readFileSync(path, 'utf8'));
+  } catch(e) {
+    console.log('Unable to read config file due to: ' + e.stack);
+    throw e;
+  }
+  return obj;
+}
 
 /**
  * Check for config access
