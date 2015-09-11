@@ -29,7 +29,7 @@ function App(config, logger, passport) {
   // Compress our responses when appropriate
   this.app.use(compression());
 
-  // This installs the passport middleware so we can authenticate using stratagies
+  // This installs the passport middleware so we can authenticate using strategies
   // defined in `auth.js`
   if (this.passport) {
     this.app.use(this.passport.initialize());
