@@ -52,7 +52,7 @@ function App(config, logger, passport) {
   this.app.use(cors({
     origin: function (origin, cb) {
       // Deny by default
-      if (!self.config || !self.config.cors) {
+      if (!origin || !self.config || !self.config.cors) {
         return cb(null, false);
       }
 
@@ -63,7 +63,7 @@ function App(config, logger, passport) {
 
       var originUrl = url.parse(origin);
       var valid = _.find(self.corsWhitelist, function (match) {
-        return match(originUrl.host);
+        return match(originUrl.hostname);
       });
 
       return cb(null, !!valid);
