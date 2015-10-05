@@ -1,8 +1,10 @@
 'use strict';
 
 var winston = require('winston'),
+  _ = require('lodash'),
   express = require('express'),
   cors = require('cors'),
+  minimatch = require('minimatch'),
   expressValidator = require('express-validator'),
   url = require('url'),
   compression = require('compression'),
@@ -21,6 +23,14 @@ function App(config, logger, passport) {
   this.app = express();
   this.logger = logger;
   this.passport = passport;
+
+  // Establish CORS whitelist matching filters
+  this.corsWhitelist = [];
+  if (this.config && this.config.cors && this.config.cors.whitelist) {
+    this.corsWhitelist = _.map(this.config.cors.whitelist, function (match) {
+      return minimatch.filter(match, { matchBase: true });
+    });
+  }
 
   // Request Logging
   var requestLogger = new (winston.Logger)({ transports: [ new (winston.transports.Console)({ colorize: true }) ]});
@@ -41,17 +51,22 @@ function App(config, logger, passport) {
   // - `cors.whitelist`: (Array) List of domains to allow CORS requests from
   this.app.use(cors({
     origin: function (origin, cb) {
-      if (self.config.cors && self.config.cors.allowAll) {
+      // Deny by default
+      if (!self.config || !self.config.cors) {
+        return cb(null, false);
+      }
+
+      // Allow all CORS request when `allowAll` is configured
+      if (self.config.cors.allowAll) {
         return cb(null, true);
       }
 
-      var valid = false;
-      if (origin && self.config.cors && self.config.cors.whitelist) {
-        // Strictly match only the hostname of the origin with our whitelist
-        var originUrl = url.parse(origin);
-        valid = self.config.cors.whitelist.indexOf(originUrl.hostname) !== -1;
-      }
-      return cb(null, valid);
+      var originUrl = url.parse(origin);
+      var valid = _.find(self.corsWhitelist, function (match) {
+        return match(originUrl);
+      });
+
+      return cb(null, !!valid);
     },
     credentials: true
   }));
