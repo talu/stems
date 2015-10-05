@@ -63,7 +63,7 @@ function App(config, logger, passport) {
 
       var originUrl = url.parse(origin);
       var valid = _.find(self.corsWhitelist, function (match) {
-        return match(originUrl);
+        return match(originUrl.host);
       });
 
       return cb(null, !!valid);
