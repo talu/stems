@@ -3,13 +3,11 @@
 
 var di = require('di'),
     mongoose = require('mongoose'),
+    Baucis = require('./baucis'),
     Config = require('./config');
 
 
-var Mongoose = function(config) {
-
-  require('baucis-vivify'); // Enable vivify in baucis
-  require('baucis'); // Ensure baucis can decorate mongoose models
+var Mongoose = function(config, baucis) {
 
   // Establish a connection to Mongo
   if (!mongoose.connection.name) {
@@ -22,7 +20,7 @@ var Mongoose = function(config) {
 
 
 // Setup dependencies
-di.annotate(Mongoose, new di.Inject(Config));
+di.annotate(Mongoose, new di.Inject(Config, Baucis));
 
 
 // Export our service
