@@ -1,6 +1,6 @@
 {
   "name": "stems",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "dependencies": {
     "analytics-node": {
       "version": "2.0.0",
@@ -672,8 +672,8 @@
     },
     "baucis": {
       "version": "1.6.3",
-      "from": "git+https://github.com/mmoulton/baucis.git",
-      "resolved": "git+https://github.com/mmoulton/baucis.git#61d8b1f32369b6f0d3c5c60baec40c0a4c3984d4",
+      "from": "mmoulton/baucis",
+      "resolved": "git://github.com/mmoulton/baucis.git#61d8b1f32369b6f0d3c5c60baec40c0a4c3984d4",
       "dependencies": {
         "baucis-json": {
           "version": "1.0.0",

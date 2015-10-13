@@ -1,6 +1,6 @@
 {
   "name": "stems",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Common services and utilities used with the Yeoman generator: generator-stems",
   "license": "MIT",
   "author": {
@@ -12,7 +12,7 @@
     "analytics-node": "*",
     "async": "*",
     "aws-sdk": "*",
-    "baucis": "https://github.com/mmoulton/baucis.git",
+    "baucis": "mmoulton/baucis",
     "baucis-vivify": "*",
     "body-parser": "*",
     "compression": "*",
