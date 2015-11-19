@@ -1,6 +1,6 @@
 {
   "name": "stems",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Common services and utilities used with the Yeoman generator: generator-stems",
   "license": "MIT",
   "author": {
@@ -31,7 +31,8 @@
     "winston": "*",
     "winston-request-logger": "*",
     "connect-datadog": "*",
-    "node-dogstatsd": "*"
+    "node-dogstatsd": "*",
+    "kerberos": "*"
   },
   "devDependencies": {
     "mongoose-test-utils": "*",
