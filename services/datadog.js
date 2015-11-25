@@ -7,7 +7,8 @@ var di = require('di'),
     DatadogConnect = require('connect-datadog'),
     DatadogStatsD = require('node-dogstatsd'),
     Logger = require('./logger'),
-    Config = require('./config');
+    Config = require('./config'),
+    UsherActivityPoller = require('usher/lib/activity/poller');
 
 
 var Datadog = function(config, logger) {
@@ -54,6 +55,61 @@ Datadog.prototype.middleware = function middleware(options) {
 
   return this.enabled ? new DatadogConnect(options) : passthrough;
 };
+
+
+/**
+ * Inject stat tracking into usher activities
+ */
+Datadog.prototype.usher = function usher(options) {
+
+  if (!this.enabled) { return; }
+
+  options = options || {};
+
+  var self = this,
+      statPrefix = options.stat || 'node.usher.activity',
+      originalTaskHandler = UsherActivityPoller.prototype._onActivityTask;
+
+  UsherActivityPoller.prototype._onActivityTask = function datadogIntercept(task) {
+    var start = new Date();
+
+    var originalSuccessHandler = task.respondCompleted,
+        originalFailureHandler = task.respondFailed,
+        statTags = [
+          'domain:' + this.domain,
+          'name:' + task.config.activityType.name,
+          'tasklist:' + this.options.taskList.name,
+          'version:' + task.config.activityType.version
+        ];
+
+    task.respondCompleted = function datadogCompleteInterceptor(result, cb) {
+      // Log some stats with datadog
+      statTags.push('result:success');
+			self.statsD.increment(statPrefix + '.result.success', 1, statTags);
+			self.statsD.increment(statPrefix + '.result.all' , 1, statTags);
+      self.statsD.histogram(statPrefix + '.execution_time', (new Date() - start), 1, statTags);
+
+      // Call original response handler
+      originalSuccessHandler.call(this, result, cb);
+    };
+
+    task.respondFailed = function datadogFailureInterceptor(name, message, cb) {
+      // Log some stats with datadog
+      statTags.push('result:failed');
+			self.statsD.increment(statPrefix + '.result.failed', 1, statTags);
+			self.statsD.increment(statPrefix + '.result.all' , 1, statTags);
+      self.statsD.histogram(statPrefix + '.execution_time', (new Date() - start), 1, statTags);
+
+      // Call original response handler
+      originalFailureHandler.call(this, name, message, cb);
+    };
+
+    // Execute the original handler
+    originalTaskHandler.call(this, task);
+  };
+
+};
+
 
 /**
  * Raw StatsD client
