@@ -3,64 +3,97 @@
 
 var di = require('di'),
     _ = require('lodash'),
-    os = require('os'),
-    DatadogConnect = require('connect-datadog'),
-    DatadogStatsD = require('node-dogstatsd'),
     Logger = require('./logger'),
     Config = require('./config'),
+    StatsD = require('./statsd'),
     UsherActivityPoller = require('usher/lib/activity/poller');
 
 
-var Datadog = function(config, logger) {
-  this.config = config.get('datadog');
+var Metrics = function(config, logger, statsD) {
+  this.config = config.get('metrics');
   this.logger = logger;
-  this.enabled = this.config && this.config.enabled;
-
-  var host = this.config.host || process.env.HOST_IP || '127.0.0.1',
-      port = this.config.port || '8125',
-      options = {
-        'global_tags': this.config.globalTags || []
-      };
-
-  // Tag with the node number and hostname
-  if (process.env.DISCOVER_NODE_NUMBER) {
-    options['global_tags'].push('node:' + process.env.DISCOVER_NODE_NUMBER);
-  }
-  options['global_tags'].push('host:' + os.hostname());
-
-  if (this.enabled) {
-    this.statsD = new DatadogStatsD.StatsD(host, port, null, options);
-    this.logger.log('debug', 'Configured StatsD client using config: ', {
-      host: host,
-      port: port,
-      options: options
-    });
-  }
+  this.enabled = statsD.isEnabled();
+  this.statsD = statsD.client();
 };
 
 
 /**
  * Connect Middleware
  */
-Datadog.prototype.middleware = function middleware(options) {
-  var passthrough = function (req, res, next) { next(); },
+Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
+  var self = this,
       defaultOptions = {
-        dogstatsd: this.statsD,
+        stat: 'node.express.router',
         method: true,
         protocol: true,
-        'response_code': true
+        responseCode: true,
+        baseUrl: false,
+        path: false,
+        tags: []
       };
 
   options = _.defaults(defaultOptions, options || {});
 
-  return this.enabled ? new DatadogConnect(options) : passthrough;
+	return function metricMiddleware(req, res, next) {
+    if (!self.enabled) {
+      return next();
+    }
+
+		if (!req._startTime) {
+			req._startTime = new Date();
+		}
+
+		var end = res.end;
+		res.end = function (chunk, encoding) {
+      var statTags = [].concat(options.tags);
+
+			res.end = end;
+			res.end(chunk, encoding);
+
+			if (!req.route || !req.route.path) {
+				return;
+			}
+
+      // Track route as a tag
+			var baseUrl = (options.baseUrl !== false) ? req.baseUrl : '';
+			statTags.push('route:' + baseUrl + req.route.path);
+
+      // Track the request method as a tag
+			if (options.method) {
+				statTags.push('method:' + req.method.toLowerCase());
+			}
+
+      // Track the protocol as a tag
+			if (options.protocol && req.protocol) {
+				statTags.push('protocol:' + req.protocol);
+			}
+
+      // Track the actual path as a tag
+			if (options.path !== false) {
+				statTags.push('path:' + baseUrl + req.path);
+			}
+
+      // Track the response code as a tag and individual counters
+			if (options.responseCode) {
+				statTags.push('response_code:' + res.statusCode);
+				self.statsD.increment(options.stat + '.response_code.' + res.statusCode , 1, statTags);
+				self.statsD.increment(options.stat + '.response_code.all' , 1, statTags);
+			}
+
+      // Track the actual request
+			self.statsD.histogram(options.stat + '.response_time', (new Date() - req._startTime), 1, statTags);
+		};
+
+		next();
+	};
+
 };
 
 
 /**
  * Inject stat tracking into usher activities
  */
-Datadog.prototype.usher = function usher(options) {
+Metrics.prototype.usher = function usher(options) {
 
   if (!this.enabled) { return; }
 
@@ -111,17 +144,9 @@ Datadog.prototype.usher = function usher(options) {
 };
 
 
-/**
- * Raw StatsD client
- */
-Datadog.prototype.client = function client() {
-  return this.statsD;
-};
-
-
 // Setup dependencies
-di.annotate(Datadog, new di.Inject(Config, Logger));
+di.annotate(Metrics, new di.Inject(Config, Logger, StatsD));
 
 
 // Export our service
-module.exports = Datadog;
+module.exports = Metrics;
