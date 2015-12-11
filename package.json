@@ -29,6 +29,7 @@
     "nconf": "*",
     "usher": "*",
     "winston": "*",
+    "winston-gelfling": "*",
     "winston-request-logger": "*",
     "connect-datadog": "*",
     "node-dogstatsd": "*",
