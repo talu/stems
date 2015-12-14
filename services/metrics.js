@@ -27,7 +27,7 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
         method: true,
         protocol: true,
         responseCode: true,
-        baseUrl: false,
+        baseUrl: true,
         path: false,
         tags: []
       };
@@ -141,6 +141,23 @@ Metrics.prototype.usher = function usher(options) {
     originalTaskHandler.call(this, task);
   };
 
+};
+
+
+/**
+ * Inject stat tracking into mongo queries
+ */
+Metrics.prototype.trackMongoDb = function trackMongoDb(mongodb, options) {
+  var mongoDogStats = require('mongodb-datadog-stats'),
+      defaultOptions = {
+        metric: 'node.mongodb.query',
+        statsClient: this.statsD
+      };
+
+  options = _.defaults(defaultOptions, options || {});
+
+  // Install tracker
+  mongoDogStats.install(mongodb, options);
 };
 
 
