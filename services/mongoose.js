@@ -3,7 +3,6 @@
 
 var di = require('di'),
     mongoose = require('mongoose'),
-    mongodb = require('mongodb'),
     Baucis = require('./baucis'),
     Metrics = require('./metrics'),
     Config = require('./config');
@@ -11,13 +10,13 @@ var di = require('di'),
 
 var Mongoose = function(config, baucis, metrics) {
 
+  // Track mongodb query metrics
+  metrics.trackMongoDb(mongoose);
+
   // Establish a connection to Mongo
   if (!mongoose.connection.name) {
     mongoose.connect(config.get('mongodb:url'), config.get('mongodb:options'));
   }
-
-  // Track mongodb query metrics
-  metrics.trackMongoDb(mongodb);
 
   return mongoose;
 
