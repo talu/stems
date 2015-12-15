@@ -17,7 +17,7 @@ var StatsD = function(config, logger) {
     ['host', 'port', 'prefix', 'suffix', 'cacheDns',
      'mock', 'globalTags', 'maxBufferSize', 'bufferFlushInterval', 'telegraf']);
 
-  options.host = options.host || '127.0.0.1';
+  options.host = options.host || process.env.HOST_IP || '127.0.0.1';
   options.globalTags = options.globalTags || [];
 
   // Tag with the node number and hostname
