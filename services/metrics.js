@@ -55,8 +55,14 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
 			}
 
       // Track route as a tag
-			var baseUrl = (options.baseUrl !== false) ? req.baseUrl : '';
-			statTags.push('route:' + baseUrl + req.route.path);
+			var baseUrl = (options.baseUrl !== false) ? req.baseUrl : '',
+          route = baseUrl + req.route.path;
+
+      // Baucis does not behave well with named routes
+      route = route.replace(/\/([0-9a-f]{64})(\/?)/g, '/:id$2');
+      route = route.replace(/\/([0-9a-f]{24})(\/?)/g, '/:id$2');
+
+			statTags.push('route:' + route);
 
       // Track the request method as a tag
 			if (options.method) {
