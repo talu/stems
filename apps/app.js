@@ -15,14 +15,13 @@ var winston = require('winston'),
   events = require('events');
 
 
-function App(config, logger, passport) {
+function App(config, logger) {
   var self = this;
 
   events.EventEmitter.call(this);
 
   this.app = express();
   this.logger = logger;
-  this.passport = passport;
 
   // Establish CORS whitelist matching filters
   this.corsWhitelist = [];
@@ -38,12 +37,6 @@ function App(config, logger, passport) {
 
   // Compress our responses when appropriate
   this.app.use(compression());
-
-  // This installs the passport middleware so we can authenticate using strategies
-  // defined in `auth.js`
-  if (this.passport) {
-    this.app.use(this.passport.initialize());
-  }
 
   // Configure CORS support
   // This supports configuration properties:
