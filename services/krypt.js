@@ -20,6 +20,13 @@ var Krypt = function(config) {
   krypt.setSecret(secretKey.value);
   krypt.setIterations(secretKey.iterations);
 
+  // Set the global context for encypted payloads
+  // Used by other services to know what key to use to decrypt
+  krypt.setContext({
+    encrypted: true,
+    keyName: config.get('krypt:defaultKey')
+  });
+
   return krypt;
 
 };
