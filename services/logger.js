@@ -15,14 +15,14 @@ var Log = function(config) {
     colorize: true
   };
 
-  if (config.get('silly')) {
+  if (!!config.get('silly')) {
     logOptions.level = 'silly';
-  } else if (config.get('debug')) {
+  } else if (!!config.get('debug')) {
     logOptions.level = 'debug';
-  } else if (config.get('verbose')) {
+  } else if (!!config.get('verbose')) {
     logOptions.level = 'verbose';
-  } else if (this.logLevel) {
-    logOptions.level = this.logLevel;
+  } else if (config.get('logger:level')) {
+    logOptions.level = config.get('logger:level');
   }
 
   if (config.get('log')) {
