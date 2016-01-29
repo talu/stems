@@ -34,7 +34,7 @@
     "kerberos": "*",
     "hot-shots": "*",
     "mongodb-datadog-stats": "*",
-    "through": "*",
+    "through": "*"
   },
   "devDependencies": {
     "mongoose-test-utils": "*",
