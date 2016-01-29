@@ -1,0 +1,33 @@
+'use strict';
+
+
+var di = require('di'),
+    Limit = require('./limit'),
+    Mapping = require('./map'),
+    Prune = require('./prune'),
+    Reject = require('./reject');
+
+
+var BaucisMiddleware = function BaucisMiddleware(limit, map, prune, reject) {
+
+  // Limit queries based on a set of criteria
+  this.limit = limit;
+
+  // Map incoming params to document specific params
+  this.map = map;
+
+  // Prune incoming fields
+  this.prune = prune;
+
+  // Reject a request with a 405
+  this.reject = reject;
+
+};
+
+
+// Setup dependencies
+di.annotate(BaucisMiddleware, new di.Inject(Limit, Mapping, Prune, Reject));
+
+
+// Export our service
+module.exports = BaucisMiddleware;
