@@ -17,7 +17,7 @@ var Prune = function Prune() {
 
     return function prune(req, res, next) {
 
-      req.baucis.incoming(through((doc) => {
+      req.baucis.incoming(through(function (doc) {
 
         _.each(fields, (field) => {
           if (doc.incoming[field]) {

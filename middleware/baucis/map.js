@@ -17,11 +17,11 @@ var Mapping = function Mapping() {
 
     return function map(req, res, next) {
 
-      req.baucis.incoming(through((doc) => {
+      req.baucis.incoming(through(function (doc) {
 
         _.each(mappings, (destination, source) => {
-          if (req.body[source]) {
-            doc.incoming[destination] = req.body[source];
+          if (_.get(req, source)) {
+            doc.incoming[destination] = _.get(req, source);
           }
         });
 
