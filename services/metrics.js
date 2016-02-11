@@ -3,10 +3,12 @@
 
 var di = require('di'),
     _ = require('lodash'),
+    moment = require('moment'),
     Logger = require('./logger'),
     Config = require('./config'),
     StatsD = require('./statsd'),
-    UsherActivityPoller = require('usher/lib/activity/poller');
+    UsherActivityPoller = require('usher/lib/activity/poller'),
+    UsherDecisionPoller = require('usher/lib/decider/poller');
 
 
 var Metrics = function(config, logger, statsD) {
@@ -109,17 +111,130 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
 
 
 /**
- * Inject stat tracking into usher activities
+ * Inject stat tracking into usher
  */
 Metrics.prototype.usher = function usher(options) {
+  this.usherWorkflow(options);
+  this.usherActivity(options);
+};
+
+
+/**
+ * Inject stat tracking into usher workflows
+ */
+Metrics.prototype.usherWorkflow = function usherWorkflow(options) {
 
   if (!this.enabled) { return; }
 
   options = options || {};
 
   var self = this,
-      statPrefix = options.stat || 'node.usher.activity',
+      statPrefix = options.stat || 'node.usher',
+      originalTaskHandler = UsherDecisionPoller.prototype._onDecisionTask;
+
+  statPrefix = statPrefix + '.workflow';
+
+  UsherDecisionPoller.prototype._onDecisionTask = function metricsIntercept(task) {
+    var start = new Date();
+
+    var events = task.eventList._events,
+        currentDecisionIndex = events.length - 1,
+        originalResponseHandler = task.response.respondCompleted,
+        statTags = [
+          'domain:' + this.domain,
+          'name:' + task.config.workflowType.name,
+          'version:' + task.config.workflowType.version
+        ];
+
+    var lastDecisionIndex = _.findLastIndex(events, function (event, index) {
+      return index < currentDecisionIndex && event.eventType === 'DecisionTaskStarted';
+    });
+
+    // Extract only the events that have happened since the last time a decision was made
+    var newEvents = events.slice(lastDecisionIndex);
+
+    // Find the name / version for the original start event for a given completion event
+    function findMetadataForEndEvent(endEvent, events) {
+      var attr = _.lowerFirst(endEvent.eventType) + 'EventAttributes',
+          beginEventId = endEvent[attr].scheduledEventId || endEvent[attr].initiatedEventId,
+          beginEvent = events[beginEventId - 1],
+          metadata = beginEvent[_.lowerFirst(beginEvent.eventType) + 'EventAttributes'],
+          name = _.get(metadata, 'activityType.name') || _.get(metadata, 'workflowType.name') || metadata.name,
+          version = _.get(metadata, 'activityType.version') || _.get(metadata, 'workflowType.version') || 'HEAD';
+      return {
+        name: name,
+        version: version
+      };
+    }
+
+    // Find string match
+    function contains(eventType, markers) {
+      return _.find(markers, function (search) {
+        return eventType.indexOf(search) > -1;
+      });
+    }
+
+    // Track some stats for all the events since our last decision was made
+    _.forEach(newEvents, function (event) {
+      var eventState = contains(event.eventType, ['Started', 'Completed', 'Failed', 'TimedOut', 'Canceled', 'Terminated']),
+          eventSubject = contains(event.eventType, ['ChildWorkflowExecution', 'ActivityTask', 'LambdaFunction']);
+
+      // We only track some state changes for some event subjects
+      if (!eventState || !eventSubject) {
+        return;
+      }
+
+      // Track a counter for each event type
+      var tags = ['type:' + eventSubject, 'state:' + _.camelCase(eventState)].concat(statTags);
+      self.statsD.increment(statPrefix + '.decision', tags);
+
+      // We don't trackin anything else for started events
+      if (eventState === 'Started') {
+        return;
+      }
+
+      var attr = _.lowerFirst(event.eventType) + 'EventAttributes',
+          startEvent = events[event[attr].startedEventId - 1],
+          startTime = moment(startEvent.eventTimestamp),
+          endTime = moment(event.eventTimestamp),
+          metadata = findMetadataForEndEvent(event, events);
+
+      // Track all the stuffs
+      self.statsD.histogram(
+        statPrefix + '.task_execution_time',
+        endTime.diff(startTime), 1,
+        ['name:' + metadata.name, 'version:' + metadata.version].concat(tags));
+    });
+
+    // Intercept decision response so we can track it's execution time
+    task.response.respondCompleted = function metricsCompleteInterceptor(decisions, cb) {
+      // Log some stats with datadog
+      self.statsD.histogram(statPrefix + '.decision_time', (new Date() - start), 1, statTags);
+
+      // Call original response handler
+      originalResponseHandler.call(this, decisions, cb);
+    };
+
+    // Execute the original handler
+    originalTaskHandler.call(this, task);
+  };
+};
+
+
+/**
+ * Inject stat tracking into usher activities
+ */
+Metrics.prototype.usherActivity = function usherActivity(options) {
+
+  if (!this.enabled) { return; }
+
+  options = options || {};
+
+  var self = this,
+      statPrefix = options.stat || 'node.usher',
       originalTaskHandler = UsherActivityPoller.prototype._onActivityTask;
+
+  statPrefix = statPrefix + '.activity';
 
   UsherActivityPoller.prototype._onActivityTask = function datadogIntercept(task) {
     var start = new Date();

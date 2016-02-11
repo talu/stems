@@ -8,6 +8,9 @@
 var through = require('through'),
     _ = require('lodash');
 
+const UPDATE_OPERATORS = ['$set', '$unset', '$push', '$pull', '$addToSet', '$pop', '$pushAll', '$pullAll'];
+
+
 /**
  * # Map incoming fields to new field on the document
  */
@@ -16,6 +19,11 @@ var Mapping = function Mapping() {
   return function mapping(mappings) {
 
     return function map(req, res, next) {
+
+      // If using the baucis 'update-operator' header, we skip any payload manipulation
+      if (UPDATE_OPERATORS.indexOf(req.headers['update-operator']) > -1) {
+        return next();
+      }
 
       req.baucis.incoming(through(function (doc) {
 
