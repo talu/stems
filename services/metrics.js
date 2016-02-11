@@ -188,8 +188,8 @@ Metrics.prototype.usherWorkflow = function usherWorkflow(options) {
       var tags = ['type:' + eventSubject, 'state:' + _.camelCase(eventState)].concat(statTags);
       self.statsD.increment(statPrefix + '.decision', tags);
 
-      // We don't trackin anything else for started events
-      if (eventState === 'Started') {
+      // We don't trackin anything else for started or scheduling events
+      if (eventState === 'Started' || contains(event.eventType, ['Schedule', 'Start'])) {
         return;
       }
 
