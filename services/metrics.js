@@ -186,7 +186,7 @@ Metrics.prototype.usherWorkflow = function usherWorkflow(options) {
 
       // Track a counter for each event type
       var tags = ['type:' + eventSubject, 'state:' + _.camelCase(eventState)].concat(statTags);
-      self.statsD.increment(statPrefix + '.decision', tags);
+      self.statsD.increment(statPrefix + '.decision', 1, 1, tags);
 
       // We don't trackin anything else for started or scheduling events
       if (eventState === 'Started' || contains(event.eventType, ['Schedule', 'Start'])) {
