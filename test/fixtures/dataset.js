@@ -86,7 +86,10 @@ DatasetImporter.prototype._createRecords = function (data, done) {
       return done(err);
     }
     done(null, _.reduce(results, (result, item) => {
-      return _.merge(result, item);
+      _.each(item, function (value, key) {
+        result[key] = value;
+      });
+      return result;
     }, {}));
   });
 };
