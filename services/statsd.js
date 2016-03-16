@@ -8,6 +8,19 @@ var di = require('di'),
     Config = require('./config');
 
 
+const NOOP = function () {},
+      MOCK = {
+        histogram: NOOP,
+        timing: NOOP,
+        increment: NOOP,
+        decrement: NOOP,
+        gauge: NOOP,
+        set: NOOP,
+        unique: NOOP,
+        event: NOOP
+      };
+
+
 var StatsD = function(config, logger) {
   this.config = config.get('statsd');
   this.logger = logger;
@@ -28,6 +41,8 @@ var StatsD = function(config, logger) {
   if (this.enabled) {
     this.statsD = new HotShots(options);
     this.logger.log('debug', 'Configured StatsD client using config: ', options);
+  } else {
+    this.statsD = MOCK;
   }
 };
 
