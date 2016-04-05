@@ -31,10 +31,12 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
         responseCode: true,
         baseUrl: true,
         path: false,
+        analyzePath: false,
+        route: true,
         tags: []
       };
 
-  options = _.defaults(defaultOptions, options || {});
+  options = _.defaults(options || {}, defaultOptions);
 
 	return function metricMiddleware(req, res, next) {
     if (!self.enabled) {
@@ -56,27 +58,29 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
 				return;
 			}
 
-      // Track route as a tag
-			var baseUrl = (options.baseUrl !== false) ? req.baseUrl : '',
+      if (options.route !== false) {
+        // Track route as a tag
+        var baseUrl = (options.baseUrl !== false) ? req.baseUrl : '',
           route = (baseUrl + req.route.path).split('/');
 
-      // Normalizing id's and removing ':' from the route
-      route = route.map(function (part) {
-        // Map named params to new syntax
-        if (part.length > 1 && part.indexOf(':') === 0) {
-          return '{' + part.substring(1) + '}';
-        }
+        // Normalizing id's and removing ':' from the route
+        route = route.map(function (part) {
+          // Map named params to new syntax
+          if (part.length > 1 && part.indexOf(':') === 0) {
+            return '{' + part.substring(1) + '}';
+          }
 
-        // Baucis does not behave well with named routes
-        if (part.match(/[0-9a-f]{64}/) || part.match(/[0-9a-f]{24}/)) {
-          return '{id}';
-        }
+          // Baucis does not behave well with named routes
+          if (part.match(/[0-9a-f]{64}/) || part.match(/[0-9a-f]{24}/)) {
+            return '{id}';
+          }
 
-        return part;
-      });
+          return part;
+        });
 
-      route = route.join('/');
-			statTags.push('route:' + route);
+        route = route.join('/');
+        statTags.push('route:' + route);
+      }
 
       // Track the request method as a tag
 			if (options.method) {
@@ -92,6 +96,23 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
 			if (options.path !== false) {
 				statTags.push('path:' + baseUrl + req.path);
 			}
+
+      if (options.analyzePath !== false) {
+        // Analyze the incoming path, merge uuids in path to {id} for analysis
+        var path = req.path.split('/');
+
+        path = path.map(function (part) {
+          // Treat uuids in the path as a parameter for analysis
+          if (part.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/)) {
+            return '{id}';
+          }
+
+          return part;
+        });
+
+        path = path.join('/');
+        statTags.push('path:' + path);
+      }
 
       // Track the response code as a tag and individual counters
 			if (options.responseCode) {
