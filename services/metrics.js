@@ -38,6 +38,11 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
 
   options = _.defaults(options || {}, defaultOptions);
 
+  // Check to see if a given part is an id
+  function isId(part) {
+    return part.match(/[0-9a-f]{64}/) || part.match(/[0-9a-f]{24}/) || part.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/);
+  }
+
 	return function metricMiddleware(req, res, next) {
     if (!self.enabled) {
       return next();
@@ -71,7 +76,7 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
           }
 
           // Baucis does not behave well with named routes
-          if (part.match(/[0-9a-f]{64}/) || part.match(/[0-9a-f]{24}/)) {
+          if (isId(part)) {
             return '{id}';
           }
 
@@ -98,12 +103,12 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
 			}
 
       if (options.analyzePath !== false) {
-        // Analyze the incoming path, merge uuids in path to {id} for analysis
+        // Analyze the incoming path, merge ids in path to {id} for analysis
         var path = req.path.split('/');
 
         path = path.map(function (part) {
-          // Treat uuids in the path as a parameter for analysis
-          if (part.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/)) {
+          // Treat ids in the path as a parameter for analysis
+          if (isId(part)) {
             return '{id}';
           }
 
