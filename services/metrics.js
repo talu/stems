@@ -198,7 +198,7 @@ Metrics.prototype.usherWorkflow = function usherWorkflow(options) {
     var start = new Date();
 
     var events = task.eventList._events,
-        currentDecisionIndex = _.get(task, 'config.startedEventId') || events.length - 1,
+        currentDecisionIndex = events.length - 1,
         originalResponseHandler = task.response.respondCompleted,
         statTags = [
           'domain:' + this.domain,
@@ -274,7 +274,7 @@ Metrics.prototype.usherWorkflow = function usherWorkflow(options) {
       });
 
     } catch (e) {
-      self.logger.log('warn', 'Failed to track usher workflow stats due to: ', e);
+      self.logger.log('warn', 'Failed to track stats for workflow: ' + _.get(task, 'config.workflowExecution.workflowId') + ' stats due to:', e);
     }
 
     // Intercept decision response so we can track it's execution time
