@@ -16,6 +16,40 @@ var Metrics = function(config, logger, statsD) {
   this.logger = logger;
   this.enabled = statsD.isEnabled();
   this.statsD = statsD.client();
+
+  // Track logging by default
+  this.trackLogger();
+};
+
+
+/**
+ * Connect Middleware
+ */
+Metrics.prototype.trackLogger = function trackLogger() {
+  var self = this,
+      stat = 'node.stems.logger';
+
+  // Don't worry about tracking if we aren't enabled
+  if (!this.enabled) {
+    return;
+  }
+
+  // Make sure we don't set more than one event listener
+  if (this.loggerInstrumented) {
+    return;
+  }
+
+  var originalLog = this.logger.log;
+  this.logger.log = function instrumentedLogger() {
+    var level = arguments[0],
+        tags = [`level:${level}`];
+		self.statsD.increment(`${stat}.log`, 1, tags);
+
+    // Log original message
+    originalLog.apply(this, arguments);
+  };
+
+  this.loggerInstrumented = true;
 };
 
 
@@ -54,7 +88,8 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
 
 		var end = res.end;
 		res.end = function (chunk, encoding) {
-      var statTags = [].concat(options.tags);
+      var statTags = [].concat(options.tags),
+          baseUrl = (options.baseUrl !== false) ? req.baseUrl : '';
 
 			res.end = end;
 			res.end(chunk, encoding);
@@ -65,8 +100,7 @@ Metrics.prototype.expressMiddleware = function expressMiddleware(options) {
 
       if (options.route !== false) {
         // Track route as a tag
-        var baseUrl = (options.baseUrl !== false) ? req.baseUrl : '',
-          route = (baseUrl + req.route.path).split('/');
+        var route = (baseUrl + req.route.path).split('/');
 
         // Normalizing id's and removing ':' from the route
         route = route.map(function (part) {
@@ -164,7 +198,7 @@ Metrics.prototype.usherWorkflow = function usherWorkflow(options) {
     var start = new Date();
 
     var events = task.eventList._events,
-        currentDecisionIndex = events.length - 1,
+        currentDecisionIndex = _.get(task, 'config.startedEventId') || events.length - 1,
         originalResponseHandler = task.response.respondCompleted,
         statTags = [
           'domain:' + this.domain,
@@ -200,37 +234,48 @@ Metrics.prototype.usherWorkflow = function usherWorkflow(options) {
       });
     }
 
-    // Track some stats for all the events since our last decision was made
-    _.forEach(newEvents, function (event) {
-      var eventState = contains(event.eventType, ['Started', 'Completed', 'Failed', 'TimedOut', 'Canceled', 'Terminated']),
-          eventSubject = contains(event.eventType, ['ChildWorkflowExecution', 'ActivityTask', 'LambdaFunction']);
+    // Ensure issues here do not cause us to segfault
+    try {
+      // Track some stats for all the events since our last decision was made
+      _.forEach(newEvents, function (event) {
+        var eventState = contains(event.eventType, ['Started', 'Completed', 'Failed', 'TimedOut', 'Canceled', 'Terminated']),
+            eventSubject = contains(event.eventType, ['ChildWorkflowExecution', 'ActivityTask', 'LambdaFunction']);
 
-      // We only track some state changes for some event subjects
-      if (!eventState || !eventSubject) {
-        return;
-      }
+        // We only track some state changes for some event subjects
+        if (!eventState || !eventSubject) {
+          return;
+        }
 
-      // Track a counter for each event type
-      var tags = ['type:' + eventSubject, 'state:' + _.camelCase(eventState)].concat(statTags);
-      self.statsD.increment(statPrefix + '.decision', 1, 1, tags);
+        // Track a counter for each event type
+        var tags = ['type:' + eventSubject, 'state:' + _.camelCase(eventState)].concat(statTags);
+        self.statsD.increment(statPrefix + '.decision', 1, 1, tags);
 
-      // We don't trackin anything else for started or scheduling events
-      if (eventState === 'Started' || contains(event.eventType, ['Schedule', 'Start'])) {
-        return;
-      }
+        // We don't trackin anything else for started or scheduling events
+        if (eventState === 'Started' || contains(event.eventType, ['Schedule', 'Start'])) {
+          return;
+        }
 
-      var attr = _.lowerFirst(event.eventType) + 'EventAttributes',
-          startEvent = events[event[attr].startedEventId - 1],
-          startTime = moment(startEvent.eventTimestamp),
-          endTime = moment(event.eventTimestamp),
-          metadata = findMetadataForEndEvent(event, events);
+        var attr = _.lowerFirst(event.eventType) + 'EventAttributes',
+            startEvent = events[event[attr].startedEventId - 1];
 
-      // Track all the stuffs
-      self.statsD.histogram(
-        statPrefix + '.task_execution_time',
-        endTime.diff(startTime), 1,
-        ['name:' + metadata.name, 'version:' + metadata.version].concat(tags));
-    });
+        if (!startEvent) {
+          return;
+        }
+
+        var startTime = moment(startEvent.eventTimestamp),
+            endTime = moment(event.eventTimestamp),
+            metadata = findMetadataForEndEvent(event, events);
+
+        // Track all the stuffs
+        self.statsD.histogram(
+          statPrefix + '.task_execution_time',
+          endTime.diff(startTime), 1,
+          ['name:' + metadata.name, 'version:' + metadata.version].concat(tags));
+      });
+
+    } catch (e) {
+      self.logger.log('warn', 'Failed to track usher workflow stats due to: ', e);
+    }
 
     // Intercept decision response so we can track it's execution time
     task.response.respondCompleted = function metricsCompleteInterceptor(decisions, cb) {
