@@ -7,6 +7,7 @@ var di = require('di'),
     Logger = require('./logger'),
     Config = require('./config'),
     StatsD = require('./statsd'),
+    eventLoopStats = require('event-loop-stats'),
     UsherActivityPoller = require('usher/lib/activity/poller'),
     UsherDecisionPoller = require('usher/lib/decider/poller');
 
@@ -19,11 +20,52 @@ var Metrics = function(config, logger, statsD) {
 
   // Track logging by default
   this.trackLogger();
+
+  // Track Event Loop by default
+  this.trackEventLoop();
 };
 
 
 /**
- * Connect Middleware
+ * Track event loop details
+ */
+Metrics.prototype.trackEventLoop = function trackEventLoop() {
+  var self = this,
+      stat = 'node.eventloop',
+      pid = _.get(process, 'env.pm_id') || 0;
+
+  // Don't worry about tracking if we aren't enabled
+  if (!this.enabled) {
+    return;
+  }
+
+  // Make sure we don't set more than one event listener
+  if (this.eventLoopInstrumented) {
+    return;
+  }
+
+  function trackEventLoopStats() {
+    try {
+      var loopStats = eventLoopStats.sense(),
+          tags = [`pid:${pid}`];
+      self.statsD.histogram(`${stat}.iterations`, loopStats.num, tags);
+      self.statsD.histogram(`${stat}.runtime.max`, loopStats.max, tags);
+      self.statsD.histogram(`${stat}.runtime.min`, loopStats.min, tags);
+      self.statsD.histogram(`${stat}.runtime.avg`, loopStats.sum / loopStats.num, tags);
+    } catch (e) {
+      self.logger.log('warn', 'Failed to collect event loop stats due to:', e);
+    }
+  }
+
+  // Track EL stats every second
+  setInterval(trackEventLoopStats, 1000);
+
+  this.eventLoopInstrumented = true;
+};
+
+
+/**
+ * Track log levels
  */
 Metrics.prototype.trackLogger = function trackLogger() {
   var self = this,
