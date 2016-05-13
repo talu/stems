@@ -17,6 +17,7 @@ var Limit = function Limit() {
   return function limitConfig(limits) {
     return function limit(req, res, next) {
       _.each(limits, (criteria, field) => {
+        criteria = _.isFunction(criteria) ? criteria.call(this, req) : criteria;
         var condition = _.isObject(criteria) ? criteria : _.get(req, criteria);
         req.baucis.query.where(field, condition);
       });
