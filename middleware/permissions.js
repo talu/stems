@@ -14,12 +14,13 @@ Permissions.prototype.hasPermission = function hasPermission(subject, idPath) {
   return this.checkPermission(subject, function (req, targets) {
     var subjectId = _.get(req.params, idPath);
 
-    // Only proceed if subject id is in the list of authorized ID's
-    if (_.includes(targets, subjectId)) {
-      return true;
+    // If the check is a custom function, let it determine the validity
+    if (_.isFunction(targets)) {
+      return targets.call(null, req, subject, subjectId);
     }
 
-    return false;
+    // Only proceed if subject id is in the list of authorized ID's
+    return _.includes(targets, subjectId);
   });
 };
 
@@ -86,18 +87,12 @@ Permissions.prototype.checkPermission = function checkPermission(subject, valida
 
     // Since we did not have a global allow, now check to see if the subject is defined in the permission list
     if (subject && _.has(checkedPermissions, subject)) {
-      var restrictions = _.get(checkedPermissions, subject);
-      restrictions = _.isArray(restrictions) ? restrictions : [restrictions];
+      var restriction = _.get(checkedPermissions, subject);
+      restriction = _.isArray(restriction) || _.isFunction(restriction) ? restriction : [restriction];
 
-      // Since our request is for a subject with restrictions, we now validate if we have access to the subject
-      var targets = _.map(restrictions, function (item) {
-        return _.isString(item) ? item : _.get(item, 'id');
-      });
-
-      if (validateFn(req, targets)) {
+      if (validateFn(req, restriction)) {
         return next();
       }
-
     }
 
     // All else fails, we reject them

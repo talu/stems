@@ -26,6 +26,11 @@ BaucisPermissions.prototype.limitResults = function limitResults() {
   return function validate(req, res, next) {
     var subject = _.get(req, 'baucis.query.model.modelName'),
         validatePermission = self.permissions.checkPermission(subject, function (req, targets) {
+          if (_.isFunction(targets)) {
+            targets.call(null, req, subject);
+            return true;
+          }
+
           req.baucis.query.where('_id', { $in: targets });
           return true;
         });
@@ -45,6 +50,13 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
       // Check for _id conditions
       var idCondition = _.get(req, 'baucis.conditions._id');
       if (idCondition && _.isString(idCondition)) {
+
+        // If the check is a custom function, let it determine the validity
+        if (_.isFunction(targets)) {
+          return targets.call(null, req, subject, idCondition);
+        }
+
+        // Only proceed if subject id is in the list of authorized ID's
         return _.includes(targets, idCondition);
       }
 
