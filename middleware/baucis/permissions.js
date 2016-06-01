@@ -47,15 +47,14 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
 
   return function validate(req, res, next) {
     var validatePermission = self.permissions.checkPermission(subject, function (req, targets) {
+      // If the check is a custom function, let it determine the validity
+      if (_.isFunction(targets)) {
+        return targets.call(null, req, subject);
+      }
+
       // Check for _id conditions
       var idCondition = _.get(req, 'baucis.conditions._id');
       if (idCondition && _.isString(idCondition)) {
-
-        // If the check is a custom function, let it determine the validity
-        if (_.isFunction(targets)) {
-          return targets.call(null, req, subject, idCondition);
-        }
-
         // Only proceed if subject id is in the list of authorized ID's
         return _.includes(targets, idCondition);
       }
