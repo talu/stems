@@ -11,7 +11,7 @@ var Baucis = function() {
 Baucis.prototype.newInstance = function () {
   this.baucis.empty(); // Reset baucis
   return this.baucis();
-}
+};
 
 
 // Export our service

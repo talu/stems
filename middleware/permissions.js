@@ -14,6 +14,11 @@ Permissions.prototype.hasPermission = function hasPermission(subject, idPath) {
   return this.checkPermission(subject, function (req, targets) {
     var subjectId = _.get(req.params, idPath);
 
+    // If targets is absolute, act accordingly
+    if (_.isBoolean(targets)) {
+      return targets;
+    }
+
     // If the check is a custom function, let it determine the validity
     if (_.isFunction(targets)) {
       return targets.call(null, req, subject, subjectId);
@@ -56,8 +61,23 @@ Permissions.prototype.hasRole = function hasRole(roleNames) {
   };
 };
 
+// Dat name tho
+Permissions.prototype.normalizePermission = function normalizePermission(setting) {
+
+  // Allowed types: Boolean, Array, Function
+  if (setting && !_.isBoolean(setting) && !_.isArray(setting) && !_.isFunction(setting)) {
+
+    // Default to Array
+    return [setting];
+  }
+
+  return setting;
+};
+
 
 Permissions.prototype.checkPermission = function checkPermission(subject, validateFn) {
+  var self = this;
+
   return function restrict(req, res, next) {
 
     function reject() {
@@ -88,7 +108,7 @@ Permissions.prototype.checkPermission = function checkPermission(subject, valida
     // Since we did not have a global allow, now check to see if the subject is defined in the permission list
     if (subject && _.has(checkedPermissions, subject)) {
       var restriction = _.get(checkedPermissions, subject);
-      restriction = _.isArray(restriction) || _.isFunction(restriction) ? restriction : [restriction];
+      restriction = self.normalizePermission(restriction);
 
       if (validateFn(req, restriction)) {
         return next();
