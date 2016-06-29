@@ -8,7 +8,7 @@
 
 var di = require('di'),
     _ = require('lodash'),
-    Logger = require('stems/services/logger'),
+    Logger = require('../../services/logger'),
     Permissions = require('../permissions');
 
 
@@ -26,6 +26,12 @@ BaucisPermissions.prototype.limitResults = function limitResults() {
   return function validate(req, res, next) {
     var subject = _.get(req, 'baucis.query.model.modelName'),
         validatePermission = self.permissions.checkPermission(subject, function (req, targets) {
+
+          // If targets is absolute, act accordingly
+          if (_.isBoolean(targets)) {
+            return targets;
+          }
+
           if (_.isFunction(targets)) {
             targets.call(null, req, subject);
             return true;
@@ -35,7 +41,7 @@ BaucisPermissions.prototype.limitResults = function limitResults() {
           return true;
         });
 
-    validatePermission(req, res, next);
+    return validatePermission(req, res, next);
   };
 };
 
@@ -47,6 +53,12 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
 
   return function validate(req, res, next) {
     var validatePermission = self.permissions.checkPermission(subject, function (req, targets) {
+
+      // If targets is absolute, act accordingly
+      if (_.isBoolean(targets)) {
+        return targets;
+      }
+
       // If the check is a custom function, let it determine the validity
       if (_.isFunction(targets)) {
         return targets.call(null, req, subject);
@@ -68,7 +80,7 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
       return true;
     });
 
-    validatePermission(req, res, next);
+    return validatePermission(req, res, next);
   };
 };
 
