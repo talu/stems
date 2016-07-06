@@ -68,7 +68,21 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
           var ref = _.get(params, 'options.ref') || _.get(params, 'caster.options.ref'),
               restrictions = _.get(restrictedSubjects, ref);
 
-          // If a given path has restrictions associated, filter out any unauthorized results
+          // This is not a relationship field
+          if (!ref) {
+            return;
+          }
+
+          // If the given path has restrictions and the restriction is a global allow/deny
+          if (_.isBoolean(restrictions)) {
+            if (!restrictions) {
+              // Nothing is allowed, unset the current value
+              _.set(context.doc, path, undefined);
+            }
+            return;
+          }
+
+          // If a given path has restrictions associated, filter out any unauthorized results based on allowed list
           if (restrictions) {
 
             // Normalize the list of restrictions to be an array
