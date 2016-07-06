@@ -5,11 +5,12 @@ var di = require('di'),
     Limit = require('./limit'),
     Mapping = require('./map'),
     Prune = require('./prune'),
+    Strip = require('./strip'),
     Permissions = require('./permissions'),
     Reject = require('./reject');
 
 
-var BaucisMiddleware = function BaucisMiddleware(limit, map, prune, permissions, reject) {
+var BaucisMiddleware = function BaucisMiddleware(limit, map, prune, strip, permissions, reject) {
 
   // Limit queries based on a set of criteria
   this.limit = limit;
@@ -19,6 +20,9 @@ var BaucisMiddleware = function BaucisMiddleware(limit, map, prune, permissions,
 
   // Prune incoming fields
   this.prune = prune;
+
+  // Strip outgoing fields
+  this.strip = strip;
 
   // Prune incoming fields
   this.permissions = permissions;
@@ -30,7 +34,7 @@ var BaucisMiddleware = function BaucisMiddleware(limit, map, prune, permissions,
 
 
 // Setup dependencies
-di.annotate(BaucisMiddleware, new di.Inject(Limit, Mapping, Prune, Permissions, Reject));
+di.annotate(BaucisMiddleware, new di.Inject(Limit, Mapping, Prune, Strip, Permissions, Reject));
 
 
 // Export our service
