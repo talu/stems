@@ -8,7 +8,8 @@
 
 var di = require('di'),
     _ = require('lodash'),
-    Logger = require('stems/services/logger'),
+    through = require('through'),
+    Logger = require('../../services/logger'),
     Permissions = require('../permissions');
 
 
@@ -26,6 +27,12 @@ BaucisPermissions.prototype.limitResults = function limitResults() {
   return function validate(req, res, next) {
     var subject = _.get(req, 'baucis.query.model.modelName'),
         validatePermission = self.permissions.checkPermission(subject, function (req, targets) {
+
+          // If targets is absolute, act accordingly
+          if (_.isBoolean(targets)) {
+            return targets;
+          }
+
           if (_.isFunction(targets)) {
             targets.call(null, req, subject);
             return true;
@@ -35,7 +42,7 @@ BaucisPermissions.prototype.limitResults = function limitResults() {
           return true;
         });
 
-    validatePermission(req, res, next);
+    return validatePermission(req, res, next);
   };
 };
 
@@ -46,7 +53,72 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
   var self = this;
 
   return function validate(req, res, next) {
+    var restrictedSubjects = _.get(req, 'authInfo.permissions.read');
+
+    // Permission handler
     var validatePermission = self.permissions.checkPermission(subject, function (req, targets) {
+
+      // Install a outgoing handler to prune restricted data from any results
+      req.baucis.outgoing(through(function (context) {
+        var model = _.get(req, 'baucis.query.model'),
+            paths = _.get(model, 'schema.paths');
+
+        // Evaluate each path in the current model to see if it references restricted data
+        _.forEach(paths, function (params, path) {
+          var ref = _.get(params, 'options.ref') || _.get(params, 'caster.options.ref'),
+              restrictions = _.get(restrictedSubjects, ref);
+
+          // This is not a relationship field
+          if (!ref) {
+            return;
+          }
+
+          // If the given path has restrictions and the restriction is a global allow/deny
+          if (_.isBoolean(restrictions)) {
+            if (!restrictions) {
+              // Nothing is allowed, unset the current value
+              _.set(context.doc, path, undefined);
+            }
+            return;
+          }
+
+          // If a given path has restrictions associated, filter out any unauthorized results based on allowed list
+          if (restrictions) {
+
+            // Normalize the list of restrictions to be an array
+            restrictions = _.isFunction(restrictions) ? [] : restrictions;
+            restrictions = _.isArray(restrictions) ? restrictions : [restrictions];
+            restrictions = _.map(restrictions, function (item) { return item.toString(); });
+
+            // Pull the value found at the restricted path
+            var contextAtPath = _.get(context.doc, path);
+
+            // If the value at the path is an array, we will make sure it only contains values also found in the list of restrictions.
+            if (_.isArray(contextAtPath)) {
+              var intersection = _.reduce(contextAtPath, function (result, item) {
+                if (_.includes(restrictions, item.toString())) {
+                  result.push(item);
+                }
+                return result;
+              }, []);
+              _.set(context.doc, path, intersection);
+
+            // If the value at the path is not found in the list of restrictions, we strike it from the results
+            } else if (!_.includes(restrictions, contextAtPath.toString())) {
+              _.set(context.doc, path, undefined);
+            }
+          }
+        });
+
+        this.queue(context);
+      }));
+
+
+      // If targets is absolute, act accordingly
+      if (_.isBoolean(targets)) {
+        return targets;
+      }
+
       // If the check is a custom function, let it determine the validity
       if (_.isFunction(targets)) {
         return targets.call(null, req, subject);
@@ -68,7 +140,7 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
       return true;
     });
 
-    validatePermission(req, res, next);
+    return validatePermission(req, res, next);
   };
 };
 
