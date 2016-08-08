@@ -28,8 +28,7 @@ DatasetImporter.prototype.reset = function (done) {
     })
     .map((model) => {
       return async.series.bind(null, [
-        model.remove.bind(model),
-        model.collection.dropAllIndexes.bind(model.collection)
+        model.remove.bind(model)
       ]);
     });
 
