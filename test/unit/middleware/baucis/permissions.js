@@ -26,7 +26,11 @@ describe('Middleware - BaucisPermissions', function () {
 
   beforeEach(function () {
     baucisPermissions = fixtures._injector.get(BaucisPermissions);
-    req = {};
+    req = {
+      baucis: {
+        outgoing: sinon.stub()
+      }
+    };
     continued = false;
     response = undefined;
   });
