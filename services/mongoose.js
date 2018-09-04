@@ -18,6 +18,10 @@ var Mongoose = function(config, baucis, metrics) {
     mongoose.connect(config.get('mongodb:url'), config.get('mongodb:options'));
   }
 
+  if (!!config.get('verbose')) {
+    mongoose.set('debug', true);
+  }
+
   return mongoose;
 
 };

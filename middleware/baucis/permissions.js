@@ -73,6 +73,12 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
             return;
           }
 
+          // We can't evaluate path restrictions that are function based after the query has executed.
+          // In this case we assume all relationships for this path are allowed and let everything through.
+          if (_.isFunction(restrictions)) {
+            return;
+          }
+
           // If the given path has restrictions and the restriction is a global allow/deny
           if (_.isBoolean(restrictions)) {
             if (!restrictions) {
@@ -86,7 +92,6 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
           if (restrictions) {
 
             // Normalize the list of restrictions to be an array
-            restrictions = _.isFunction(restrictions) ? [] : restrictions;
             restrictions = _.isArray(restrictions) ? restrictions : [restrictions];
             restrictions = _.map(restrictions, function (item) { return item.toString(); });
 
@@ -96,7 +101,8 @@ BaucisPermissions.prototype.hasPermission = function hasPermission(subject) {
             // If the value at the path is an array, we will make sure it only contains values also found in the list of restrictions.
             if (_.isArray(contextAtPath)) {
               var intersection = _.reduce(contextAtPath, function (result, item) {
-                if (_.includes(restrictions, item.toString())) {
+                var id = _.get(item, '_id') || item;
+                if (_.includes(restrictions, id.toString())) {
                   result.push(item);
                 }
                 return result;
